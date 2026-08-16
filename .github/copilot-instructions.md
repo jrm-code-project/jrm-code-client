@@ -13,8 +13,9 @@ jrm-code-project.
 The repository contains `README.md`, `LICENSE`, a checked-in snapshot of
 the upstream OpenAPI spec at `openapi.json`, a Go client binding in `go/`
 (package `jrmclient`, module `github.com/jrm-code-project/jrm-code-client/go`),
-and a Common Lisp client binding in `common-lisp/` (ASDF system
-`jrm-code-client`, package `jrm-code-client`/nickname `jrmc`).
+a Common Lisp client binding in `common-lisp/` (ASDF system
+`jrm-code-client`, package `jrm-code-client`/nickname `jrmc`), and a Python
+client binding in `python/` (package `jrm_code_client`).
 
 ## Go client (`go/`)
 
@@ -77,6 +78,33 @@ and a Common Lisp client binding in `common-lisp/` (ASDF system
   needs checking into the plain (globally `setf`, never `let`-bound)
   special variable `*captured-request*`, and assertions run afterwards back
   on the test's own thread. See `tests/client-tests.lisp` for the pattern.
+
+## Python client (`python/`)
+
+- src-layout package: source under `python/src/jrm_code_client/`, tests
+  under `python/tests/`.
+- Setup: `pip install -e "./python[test]"` (installs the package plus
+  `pytest` and `responses`).
+- Test: `cd python; python -m pytest`. Run a single test with
+  `python -m pytest -k test_name` or
+  `python -m pytest tests/test_client.py::test_name`.
+- Dependencies: `requests` (HTTP) at runtime; `responses` (HTTP mocking,
+  playing the same role as `httptest`/Hunchentoot in the other bindings)
+  and `pytest` for tests only.
+- Layout: unlike the Go/CL bindings (functions/methods grouped by file
+  directly), Python exposes a single `JrmCodeClient` class assembled from
+  mixins — `_BaseClient` (session, token, `_request`/`_request_json`
+  plumbing) in `client.py`, and one mixin per endpoint group: `_AuthMixin`
+  (`auth.py`), `_PastesMixin` (`pastes.py`), `_ChefMixin` (`chef.py`),
+  `_DiagnosticsMixin` (`diagnostics.py`). `__init__.py` combines them into
+  the public `JrmCodeClient` and re-exports response dataclasses from
+  `models.py` and `ApiError` from `exceptions.py`.
+- Conventions: response types are frozen `dataclasses` with a
+  `_from_json(dict)` classmethod. Auth-required methods pass
+  `authorize=True` to `_request`/`_request_json`, which raises
+  `RuntimeError` immediately if `client.token` is unset (no token is
+  fetched implicitly). Non-2xx responses raise `ApiError` (status code +
+  reason + body).
 
 ## The OpenAPI spec
 
