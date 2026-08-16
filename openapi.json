@@ -1,0 +1,308 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "JRM Code Project API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://jrm-code-project.com" }
+  ],
+  "paths": {
+    "/api/v1/auth/token": {
+      "post": {
+        "summary": "Exchange an API key for a short-lived JWT.",
+        "description": "Exchange an API key for a short-lived JWT.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "api_key"],
+                "properties": {
+                  "username": { "type": "string" },
+                  "api_key": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "access_token": { "type": "string" },
+                    "expires_in": { "type": "integer" },
+                    "token_type": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request." },
+          "401": { "description": "Unauthorized (Invalid credentials)." },
+          "413": { "description": "Payload Too Large (body exceeds 64KB)." },
+          "415": { "description": "Unsupported Media Type (missing/incorrect Content-Type; must be application/json)." },
+          "429": { "description": "Too Many Requests." }
+        }
+      }
+    },
+    "/api/v1/pastes": {
+      "post": {
+        "summary": "Create a new paste.",
+        "description": "Create a new paste owned by the authenticated caller.",
+        "security": [ { "BearerAuth": [] } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "id": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request." },
+          "401": { "description": "Unauthorized or expired token." },
+          "413": { "description": "Payload Too Large (body exceeds 64KB)." },
+          "415": { "description": "Unsupported Media Type (missing/incorrect Content-Type; must be application/json)." },
+          "429": { "description": "Too Many Requests." }
+        }
+      },
+      "get": {
+        "summary": "Retrieve a paste.",
+        "description": "Retrieve a paste's content by id. Publicly readable; no authentication required.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "content": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request." },
+          "404": { "description": "Paste not found or expired." }
+        }
+      },
+      "delete": {
+        "summary": "Delete a paste.",
+        "description": "Delete a paste owned by the authenticated caller.",
+        "security": [ { "BearerAuth": [] } ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request." },
+          "401": { "description": "Unauthorized or expired token." },
+          "429": { "description": "Too Many Requests." }
+        }
+      }
+    },
+    "/api/v1/user/pastes": {
+      "get": {
+        "summary": "List the authenticated caller's pastes.",
+        "description": "Return the authenticated caller's non-expired pastes, most recently created first.",
+        "security": [ { "BearerAuth": [] } ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "created_at": { "type": "string" },
+                      "expires_at": { "type": "string", "nullable": true },
+                      "content_preview": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized or expired token." },
+          "429": { "description": "Too Many Requests." }
+        }
+      }
+    },
+    "/api/v1/chef": {
+      "post": {
+        "summary": "Roast Lisp code using The Chef.",
+        "description": "Programmatic access to The Chef. Requires a JWT (paid tier) and a Gemini API key.",
+        "security": [ { "BearerAuth": [] } ],
+        "parameters": [
+          {
+            "name": "x-goog-api-key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Your Google Gemini API Key."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "description": "Raw Lisp code to be roasted (64 lines or fewer)."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The Chef's roast.",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request (missing code)." },
+          "401": { "description": "Unauthorized (missing/invalid/expired JWT, or missing x-goog-api-key)." },
+          "403": { "description": "Forbidden (membership tier too low)." },
+          "413": { "description": "Payload Too Large (code exceeds the 64-line limit)." },
+          "422": { "description": "Unprocessable Entity (body does not appear to be valid Common Lisp)." },
+          "415": { "description": "Unsupported Media Type (missing/incorrect Content-Type; must be text/plain)." },
+          "429": { "description": "Too Many Requests." }
+        }
+      }
+    },
+    "/api/v1/ping": {
+      "get": {
+        "summary": "Liveness/auth check.",
+        "description": "Trivial JWT-authenticated liveness check for exercising the OpenAPI integration externally. Returns the caller's identity and tier as decoded from the Bearer JWT.",
+        "security": [ { "BearerAuth": [] } ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "user": { "type": "string" },
+                    "tier": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized or expired token." },
+          "429": { "description": "Too Many Requests." }
+        }
+      }
+    },
+    "/api/v1/echo": {
+      "post": {
+        "summary": "Echo back a JSON request body.",
+        "description": "JWT-authenticated diagnostic endpoint that parses the request body as JSON and returns it verbatim, so a client can confirm its request encoding and auth header handling work end to end. Requires a valid Bearer JWT (anonymous access is refused) and rejects bodies over 64KB.",
+        "security": [ { "BearerAuth": [] } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "echo": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad Request (missing or malformed JSON body)." },
+          "401": { "description": "Unauthorized (missing/invalid/expired JWT)." },
+          "413": { "description": "Payload Too Large (body exceeds 64KB)." },
+          "415": { "description": "Unsupported Media Type (missing/incorrect Content-Type; must be application/json)." },
+          "429": { "description": "Too Many Requests." }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    { "BearerAuth": [] },
+    {}
+  ]
+}
