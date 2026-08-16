@@ -11,8 +11,10 @@ jrm-code-project.
 ## Project status
 
 The repository contains `README.md`, `LICENSE`, a checked-in snapshot of
-the upstream OpenAPI spec at `openapi.json`, and a Go client binding in
-`go/` (package `jrmclient`, module `github.com/jrm-code-project/jrm-code-client/go`).
+the upstream OpenAPI spec at `openapi.json`, a Go client binding in `go/`
+(package `jrmclient`, module `github.com/jrm-code-project/jrm-code-client/go`),
+and a Common Lisp client binding in `common-lisp/` (ASDF system
+`jrm-code-client`, package `jrm-code-client`/nickname `jrmc`).
 
 ## Go client (`go/`)
 
@@ -33,6 +35,48 @@ the upstream OpenAPI spec at `openapi.json`, and a Go client binding in
 - When the OpenAPI spec gains endpoints/fields, mirror the pattern above:
   add/extend a types.go struct, add a method in the relevant grouped file,
   and add an `httptest`-based test alongside it.
+
+## Common Lisp client (`common-lisp/`)
+
+- No system-wide Common Lisp toolchain may be assumed present. In this
+  environment, SBCL is installed at `C:\Program Files\Steel Bank Common
+  Lisp\sbcl.exe` with a working Quicklisp already set up under the user
+  profile.
+- Load via ASDF/Quicklisp: `(push (truename "common-lisp/")
+  asdf:*central-registry*)` then `(ql:quickload :jrm-code-client)`.
+- Build/test: `(asdf:test-system :jrm-code-client)` (wired via `:in-order-to
+  ((asdf:test-op (asdf:test-op "jrm-code-client/tests")))` in
+  `jrm-code-client.asd`) loads and runs the full FiveAM suite. Run a single
+  test with `(fiveam:run! 'jrm-code-client/tests::test-name)` after loading
+  `:jrm-code-client/tests`.
+- Dependencies (via Quicklisp): `drakma` (HTTP), `jonathan` (JSON),
+  `flexi-streams` (UTF-8 decoding of non-`text/*` responses, since drakma
+  only auto-decodes bodies whose Content-Type is in `*text-content-types*`,
+  which defaults to `text/*` only — `application/json` bodies come back as
+  octet vectors and must be decoded explicitly); tests additionally use
+  `hunchentoot` (local test server) and `fiveam`.
+- Layout mirrors the Go package: `package.lisp`, `client.lisp` (`client`
+  class, `%request`/`%request-json` plumbing, `api-error` condition),
+  `auth.lisp`, `pastes.lisp`, `chef.lisp`, `diagnostics.lisp` (one file per
+  group of related endpoints), plus `tests/test-server.lisp` (Hunchentoot
+  test double) and `tests/client-tests.lisp`.
+- Conventions: JSON object bodies/responses are plists keyed by
+  **pipe-quoted lowercase keywords** (e.g. `:|access_token|`), not bare
+  keywords — `jonathan` upcases bare `:access-token`-style keys on encode,
+  and `jonathan:parse`'s plist output uses the exact on-wire case via pipe
+  syntax on decode, so both directions must use pipe-quoted keys matching
+  the JSON field names verbatim. Every endpoint returns a `defstruct`
+  instance (e.g. `token-response`, `paste`, `create-paste-response`).
+  Auth-required calls pass `:authorize t` to `%request`/`%request-json`,
+  which signals an error immediately (no HTTP call made) if `client-token`
+  is unset.
+- **Testing gotcha:** Hunchentoot dispatches requests on worker threads, so
+  test handlers must never call FiveAM's `is` directly — its pass/fail
+  state is thread-local to the `test` form's thread, and a Hunchentoot
+  worker thread is a different thread. Instead, handlers stash whatever
+  needs checking into the plain (globally `setf`, never `let`-bound)
+  special variable `*captured-request*`, and assertions run afterwards back
+  on the test's own thread. See `tests/client-tests.lisp` for the pattern.
 
 ## The OpenAPI spec
 
