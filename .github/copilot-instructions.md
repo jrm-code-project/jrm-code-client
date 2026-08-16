@@ -14,8 +14,9 @@ The repository contains `README.md`, `LICENSE`, a checked-in snapshot of
 the upstream OpenAPI spec at `openapi.json`, a Go client binding in `go/`
 (package `jrmclient`, module `github.com/jrm-code-project/jrm-code-client/go`),
 a Common Lisp client binding in `common-lisp/` (ASDF system
-`jrm-code-client`, package `jrm-code-client`/nickname `jrmc`), and a Python
-client binding in `python/` (package `jrm_code_client`).
+`jrm-code-client`, package `jrm-code-client`/nickname `jrmc`), a Python
+client binding in `python/` (package `jrm_code_client`), and an Emacs Lisp
+client binding in `emacs-lisp/` (package `jrm-code-client`).
 
 ## Go client (`go/`)
 
@@ -105,6 +106,45 @@ client binding in `python/` (package `jrm_code_client`).
   `RuntimeError` immediately if `client.token` is unset (no token is
   fetched implicitly). Non-2xx responses raise `ApiError` (status code +
   reason + body).
+
+## Emacs Lisp client (`emacs-lisp/`)
+
+- No package manager dependency: only built-in Emacs libraries are used
+  (`url`, `json`, `cl-lib`). No admin rights are assumed in this
+  environment; a portable Emacs build works fine (e.g. extract the
+  official Windows zip from `https://ftpmirror.gnu.org/emacs/windows/` to
+  `%USERPROFILE%\emacs-portable`).
+- Build/test: from `emacs-lisp/`,
+  `emacs -batch -L . -l jrm-code-client.el -l jrm-code-client-auth.el -l
+  jrm-code-client-pastes.el -l jrm-code-client-chef.el -l
+  jrm-code-client-diagnostics.el -l jrm-code-client-tests.el -f
+  ert-run-tests-batch-and-exit` runs the full ERT suite. Byte-compile
+  check: `emacs -batch -L . -f batch-byte-compile *.el` (should produce no
+  warnings; `.elc` files are gitignored and safe to delete after).
+- Layout mirrors the other bindings: `jrm-code-client.el` (core —
+  `jrm-code-client` `cl-defstruct`, `jrm-code-client-create`,
+  `jrm-code-client-api-error` condition via `define-error`,
+  `jrm-code-client--http-request`/`--request`/`--request-json`
+  plumbing), `jrm-code-client-auth.el`, `jrm-code-client-pastes.el`,
+  `jrm-code-client-chef.el`, `jrm-code-client-diagnostics.el` (one file per
+  group of related endpoints), and `jrm-code-client-tests.el` (ERT suite).
+- Conventions: JSON is decoded with `json-object-type 'alist` and
+  `json-key-type 'string` so keys match the wire format exactly (no
+  case-mangling issues like the Common Lisp binding has). Every endpoint
+  returns a `cl-defstruct` instance. Auth-required calls pass `:authorize
+  t` through `--request`/`--request-json`, which signals a plain `error`
+  immediately (no HTTP call made) if the client's `token` slot is unset.
+- **Gotcha:** `jrm-code-client--http-request` intentionally takes plain
+  positional arguments `(method url extra-headers data)`, not a
+  `cl-defun`-style `&key` lambda list, even though it's the lowest-level
+  request function. This is because ERT tests replace it via `cl-letf`
+  with plain `lambda` forms to assert on outgoing requests, and plain
+  Elisp `lambda` does **not** understand `&key` — that extended
+  lambda-list syntax is only parsed by `cl-defun`/`cl-function`/`cl-lambda`.
+  Mocking a `cl-defun`-with-`&key` function with a plain `&key` lambda
+  fails at call time with `wrong-number-of-arguments`. Higher-level
+  functions (`jrm-code-client--request`, `--request-json`) are never
+  mocked directly in tests, so they safely use `cl-defun`/`&key` as usual.
 
 ## The OpenAPI spec
 
